@@ -1,23 +1,12 @@
-import itemsDefault from './gallery-items.js';
+import images from './gallery-items.js';
 
-const refs = {
-  galleryList: document.querySelector('.js-gallery'), //общий родитель картинок
-  modal: document.querySelector('.js-lightbox'), //модальное окно
-  modalCloseBtn: document.querySelector('button[data-action="close-lightbox"]'), //кнопка закрытия модального окна
-  modalImage: document.querySelector('.lightbox__image'),
-  modalOverlay: document.querySelector('.lightbox__overlay'), //серый фон в модалке
-};
-
-// Создание и рендер разметки по массиву данных и предоставленному шаблону.
-
-const galleryMarkup = createGalleryMarkup(itemsDefault);
-refs.galleryList.insertAdjacentHTML('beforeend', galleryMarkup);
-
-function createGalleryMarkup(elements) {
-  return elements
-    .map(({ preview, original, description }) => {
-      return `
-    <li class="gallery__item">
+const galleryPreview = document.querySelector('.js-gallery');
+const modal = document.querySelector('.js-lightbox');
+const imageInModal = document.querySelector('.lightbox__image');
+const btnCloseModal = document.querySelector('[data-action="close-lightbox"]');
+const overlay = document.querySelector('.lightbox__overlay');
+const makeImageMarkupFromObj = ({ preview, original, description }) => {
+  return `<li class="gallery__item">
   <a
     class="gallery__link"
     href="${original}"
@@ -29,60 +18,74 @@ function createGalleryMarkup(elements) {
       alt="${description}"
     />
   </a>
-</li>
-    `;
-    })
-    .join('');
-}
+</li>`;
+};
 
-// Реализация делегирования на галерее ul.js-gallery и получение url большого изображения.
+const makeRowMarkupForGallery = images.map(makeImageMarkupFromObj).join(' ');
 
-refs.galleryList.addEventListener('click', onOpenModal);
+galleryPreview.insertAdjacentHTML('afterbegin', makeRowMarkupForGallery);
 
-function onOpenModal(evt) {
-  if (evt.target.nodeName !== 'IMG') {
+galleryPreview.addEventListener('click', onOpenModal);
+
+function onOpenModal(e) {
+  if (!e.target.classList.contains('gallery__image')) {
     return;
   }
-  evt.preventDefault(); //отмена перехода по ссылке
+  e.preventDefault();
+  window.addEventListener('keydown', closeModalFromESC);
+  window.addEventListener('keydown', swapImages);
+  btnCloseModal.addEventListener('click', onModalClose);
+  overlay.addEventListener('click', closeModalFromOverlay);
 
-  refs.modal.classList.add('is-open'); // Открытие модального окна по клику на элементе галереи.
-  refs.modalImage.src = evt.target.dataset.source; // Подмена значения атрибута src элемента img.lightbox__image.
-  refs.modalImage.alt = evt.target.alt;
+  const source = e.target.dataset.source;
+  const alt = e.target.getAttribute('alt');
+  modal.classList.add('is-open');
 
-  window.addEventListener('keydown', onEscKeyPress);
-  window.addEventListener('keydown', onArrowLeftPress);
-  window.addEventListener('keydown', onArrowRightPress);
+  imageInModal.setAttribute('src', source);
+  imageInModal.setAttribute('alt', alt);
 }
 
-// Закрытие модального окна по клику на кнопку button[data-action="close-lightbox"].
-refs.modalCloseBtn.addEventListener('click', onCloseModal);
-
-function onCloseModal() {
-  refs.modal.classList.remove('is-open');
-  refs.modalImage.src = ''; // Очистка значения атрибута src элемента img.lightbox__image.
-  refs.modalImage.alt = '';
-  window.removeEventListener('keydown', onEscKeyPress);
-  window.removeEventListener('keydown', onArrowLeftPress);
-  window.removeEventListener('keydown', onArrowRightPress);
+function onModalClose() {
+  window.removeEventListener('keydown', closeModalFromESC);
+  window.removeEventListener('keydown', swapImages);
+  btnCloseModal.removeEventListener('click', onModalClose);
+  overlay.removeEventListener('click', closeModalFromOverlay);
+  modal.classList.remove('is-open');
+  imageInModal.removeAttribute('src');
+  imageInModal.removeAttribute('alt');
 }
 
-// Закрытие модального окна по клику на div.lightbox__overlay.
+function closeModalFromOverlay() {
+  onModalClose();
+}
 
-refs.modalOverlay.addEventListener('click', onBOverlayClick);
-
-function onBOverlayClick(evt) {
-  if (evt.currentTarget === evt.target) {
-    onCloseModal();
+function closeModalFromESC(e) {
+  if (e.code === 'Escape') {
+    onModalClose();
   }
 }
 
-// Закрытие модального окна по нажатию клавиши ESC.
+let ArrOfSources = [];
+images.forEach(item => {
+  ArrOfSources.push(item.original);
+});
 
-function onEscKeyPress(event) {
-  const ESC_KEY_CODE = 'Escape';
-  const isEscKey = event.code === ESC_KEY_CODE;
+function swapImages(e) {
+  let index = ArrOfSources.indexOf(imageInModal.src);
 
-  if (isEscKey) {
-    onCloseModal();
+  if (e.code === 'ArrowRight') {
+    if (index < ArrOfSources.length - 1) {
+      imageInModal.setAttribute('src', ArrOfSources[index + 1]);
+    } else {
+      index = -1;
+      imageInModal.setAttribute('src', ArrOfSources[index + 1]);
+    }
+  }
+
+  if (e.code === 'ArrowLeft') {
+    if (index === 0) {
+      index = ArrOfSources.length;
+      imageInModal.setAttribute('src', ArrOfSources[index - 1]);
+    } else imageInModal.setAttribute('src', ArrOfSources[index - 1]);
   }
 }
